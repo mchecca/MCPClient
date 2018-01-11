@@ -2,6 +2,7 @@
 """Main module for the MCP app."""
 
 import logging
+import os
 import sys
 from PyQt5.Qt import QIcon
 from PyQt5.QtCore import QTimer
@@ -16,6 +17,12 @@ import resources
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
+_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs.txt')
+fh = logging.FileHandler(_LOG_FILE)
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+fh.setFormatter(formatter)
+fh.setLevel(logging.INFO)
+logging.root.addHandler(fh)
 
 
 class MCP(QMainWindow):

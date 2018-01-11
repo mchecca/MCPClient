@@ -104,3 +104,4 @@ venv.bak/
 .mypy_cache/
 
 forms/ui_*.py
+logs.txt
