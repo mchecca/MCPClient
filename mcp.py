@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Main module for the MCP app."""
 
+import datetime
 import logging
 import os
 import sys
 from PyQt5.Qt import QIcon
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QTextCursor
-from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QMainWindow, QMenu, QSystemTrayIcon,
-                             QWidget)
+from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QMainWindow, QMenu, QMessageBox,
+                             QSystemTrayIcon, QWidget)
 
 from forms import ui_mcp_main_window
 from mcp_mqtt import McpMqtt
@@ -34,6 +35,7 @@ class MCP(QMainWindow):
     _notification = None
     _green_icon = None
     _red_icon = None
+    _last_ping = None
 
     def __init__(self, server=None):
         """Create a new MCP window."""
@@ -89,22 +91,44 @@ class MCP(QMainWindow):
     def _handle_ping_timeout(self):
         if self._mcp_mqtt:
             self._mcp_mqtt.send_ping()
+        else:
+            self.ui.statusBar.showMessage('Disconnected')
+        if self._last_ping:
+            seconds_since_last_ping = (datetime.datetime.now() - self._last_ping).total_seconds()
+            if seconds_since_last_ping > (self._PING_INTERVAL * 2 / 1000):
+                self.ui.statusBar.showMessage('Disconnected from client')
 
     def _handle_connect_clicked(self):
-        # TODO Get values from UI
-        self._mcp_mqtt = McpMqtt('127.0.0.1', 1883, 'mchecca')
+        mqtt_host = self.ui.mqttServerEdit.text().strip()
+        mqtt_ip, mqtt_port = (mqtt_host + ':1883').split(':')[0:2]
+        mqtt_port = int(mqtt_port)
+        client_id = self.ui.clientIdEdit.text().strip()
+        error_msg = None
+        if not mqtt_host:
+            error_msg = 'MQTT Host is empty!'
+        elif not mqtt_port:
+            error_msg = 'MQTT port is empty!'
+        elif not client_id:
+            error_msg = 'Client ID is empty'
+        if error_msg:
+            QMessageBox.critical(self, self.windowTitle(), error_msg)
+            return
+        self._mcp_mqtt = McpMqtt(mqtt_ip, mqtt_port, client_id)
         self._mcp_mqtt.ping_message.connect(self._handle_ping_message)
         self._mcp_mqtt.log_message.connect(self._handle_log_message)
         self._mcp_mqtt.new_sms_message.connect(self._handle_new_sms_message)
         self._mcp_mqtt.run()
 
     def _handle_send_message_clicked(self):
-        number = self.ui.recepientEdit.text().strip()
-        message = self.ui.messageEdit.toPlainText().strip()
-        self._mcp_mqtt.send_sms(number, message)
+        if self._mcp_mqtt:
+            number = self.ui.recepientEdit.text().strip()
+            message = self.ui.messageEdit.toPlainText().strip()
+            self._mcp_mqtt.send_sms(number, message)
+            self.ui.messageEdit.clear()
 
     def _handle_ping_message(self, date):
         self.ui.statusBar.showMessage('Connected: %s' % date)
+        self._last_ping = datetime.datetime.now()
 
     def _handle_log_message(self, date, message):
         self._show_message(message)
