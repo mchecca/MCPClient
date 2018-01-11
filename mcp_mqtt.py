@@ -18,6 +18,7 @@ class McpMqtt(mqtt.Client, QObject):
 
     log_message = pyqtSignal(datetime.datetime, str, name='logMessage')
     ping_message = pyqtSignal(datetime.datetime, name='pingMessage')
+    new_sms_message = pyqtSignal(datetime.datetime, str, str, name='newSmsMessage')
     _mqtt_ip = None
     _mqtt_port = None
     _client_id = None
@@ -78,12 +79,12 @@ class McpMqtt(mqtt.Client, QObject):
         del client, userdata
         try:
             msg_json = json.loads(msg.payload)
+            date = datetime.datetime.fromtimestamp(int(msg_json['date']))
             if msg_json['type'] == 'ping':
-                ping_date = datetime.datetime.fromtimestamp(int(msg_json['date']))
-                self.ping_message.emit(ping_date)
+                self.ping_message.emit(date)
             elif msg_json['type'] == 'sms_sent':
                 sms_sent_msg = 'Sent SMS to %s: %s' % (msg_json['number'], msg_json['message'])
-                self.log_message.emit(datetime.datetime.now(), sms_sent_msg)
+                self.log_message.emit(date, sms_sent_msg)
             else:
                 raise Exception('Unknown event type: %s' % msg_json['type'])
         except Exception:
@@ -92,4 +93,9 @@ class McpMqtt(mqtt.Client, QObject):
     def _handle_receive_message(self, client, userdata, msg):
         """Run message callback when a SMS receive message is received."""
         del client, userdata
-        logging.info('SMS received: %s' % msg.payload)
+        try:
+            msg_json = json.loads(msg.payload)
+            date = datetime.datetime.fromtimestamp(int(msg_json['date']))
+            self.new_sms_message.emit(date, msg_json['number'], msg_json['message'])
+        except Exception:
+            logging.exception('Unable to parse JSON message')
