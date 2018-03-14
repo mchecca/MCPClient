@@ -17,12 +17,12 @@ import resources
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
+                    level=logging.DEBUG)
 _LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs.txt')
 fh = logging.FileHandler(_LOG_FILE)
 formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 fh.setFormatter(formatter)
-fh.setLevel(logging.INFO)
+fh.setLevel(logging.DEBUG)
 logging.root.addHandler(fh)
 
 
