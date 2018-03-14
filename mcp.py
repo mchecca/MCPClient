@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 from PyQt5.Qt import QIcon
-from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QMainWindow, QMenu, QMessageBox,
                              QSystemTrayIcon, QWidget)
@@ -29,24 +28,15 @@ logging.root.addHandler(fh)
 class MCP(QMainWindow):
     """Main window for the MCP app."""
 
-    _PING_INTERVAL = 30000
-    _mcp_mqtt = None
-    _ping_timer = None
-    _notification = None
-    _green_icon = None
-    _red_icon = None
-    _last_ping = None
-
     def __init__(self, server=None):
         """Create a new MCP window."""
         QWidget.__init__(self, None)
+        self._mcp_mqtt = None
+        self._notification = None
         self._green_icon = QIcon(resources.GREEN_ICON)
         self._red_icon = QIcon(resources.RED_ICON)
         self.ui = ui_mcp_main_window.Ui_McpMainWindow()
         self.ui.setupUi(self)
-        self._ping_timer = QTimer()
-        self._ping_timer.setInterval(self._PING_INTERVAL)
-        self._ping_timer.start()
         screenFrame = self.frameGeometry()
         screenFrame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(screenFrame.topLeft())
@@ -63,7 +53,6 @@ class MCP(QMainWindow):
         self._tray.messageClicked.connect(self._clear_current_notification)
         self.ui.connectButton.clicked.connect(self._handle_connect_clicked)
         self.ui.sendMessageButton.clicked.connect(self._handle_send_message_clicked)
-        self._ping_timer.timeout.connect(self._handle_ping_timeout)
 
     def quit(self):
         """Close the MCP UI."""
@@ -88,16 +77,6 @@ class MCP(QMainWindow):
         self._notification = message
         self._tray.setIcon(self._red_icon)
 
-    def _handle_ping_timeout(self):
-        if self._mcp_mqtt:
-            self._mcp_mqtt.send_ping()
-        else:
-            self.ui.statusBar.showMessage('Disconnected')
-        if self._last_ping:
-            seconds_since_last_ping = (datetime.datetime.now() - self._last_ping).total_seconds()
-            if seconds_since_last_ping > (self._PING_INTERVAL * 2 / 1000):
-                self.ui.statusBar.showMessage('Disconnected from client')
-
     def _handle_connect_clicked(self):
         mqtt_host = self.ui.mqttServerEdit.text().strip()
         mqtt_ip, mqtt_port = (mqtt_host + ':1883').split(':')[0:2]
@@ -114,7 +93,7 @@ class MCP(QMainWindow):
             QMessageBox.critical(self, self.windowTitle(), error_msg)
             return
         self._mcp_mqtt = McpMqtt(mqtt_ip, mqtt_port, client_id)
-        self._mcp_mqtt.ping_message.connect(self._handle_ping_message)
+        self._mcp_mqtt.connect_message.connect(self._handle_connect_message)
         self._mcp_mqtt.log_message.connect(self._handle_log_message)
         self._mcp_mqtt.new_sms_message.connect(self._handle_new_sms_message)
         self._mcp_mqtt.run()
@@ -126,9 +105,10 @@ class MCP(QMainWindow):
             self._mcp_mqtt.send_sms(number, message)
             self.ui.messageEdit.clear()
 
-    def _handle_ping_message(self, date):
-        self.ui.statusBar.showMessage('Connected: %s' % date)
-        self._last_ping = datetime.datetime.now()
+    def _handle_connect_message(self, connected):
+        status = 'Connected' if connected else 'Disconnected'
+        date_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.ui.statusBar.showMessage('%s: %s' % (status, date_str))
 
     def _handle_log_message(self, date, message):
         self._show_message(message)

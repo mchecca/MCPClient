@@ -10,14 +10,14 @@ import paho.mqtt.client as mqtt
 _SEND_TOPIC_FMT = "%s/sms/send"
 _RECEIVE_TOPIC_FMT = '%s/sms/receive'
 _EVENT_TOPIC_FMT = "%s/sms/event"
-_PING_TOPIC_FMT = "%s/ping"
+_CONNECTED_TOPIC_FMT = "%s/connected"
 
 
 class McpMqtt(mqtt.Client, QObject):
     """MQTT Client for MCP."""
 
     log_message = pyqtSignal(datetime.datetime, str, name='logMessage')
-    ping_message = pyqtSignal(datetime.datetime, name='pingMessage')
+    connect_message = pyqtSignal(bool, name='connectMessage')
     new_sms_message = pyqtSignal(datetime.datetime, str, str, name='newSmsMessage')
     _mqtt_ip = None
     _mqtt_port = None
@@ -25,7 +25,7 @@ class McpMqtt(mqtt.Client, QObject):
 
     def __init__(self, mqtt_ip, mqtt_port, client_id):
         """Initialize the MQTT handler."""
-        super(McpMqtt, self).__init__(client_id=client_id, clean_session=False, transport="tcp")
+        super(McpMqtt, self).__init__(transport="tcp")
         QObject.__init__(self)
         self._mqtt_ip = mqtt_ip
         self._mqtt_port = mqtt_port
@@ -36,10 +36,11 @@ class McpMqtt(mqtt.Client, QObject):
         del client, userdata, flags, rc
         event_topic = _EVENT_TOPIC_FMT % self._client_id
         receive_topic = _RECEIVE_TOPIC_FMT % self._client_id
-        self.subscribe([(event_topic, 0), (receive_topic, 0)])
+        connected_topic = _CONNECTED_TOPIC_FMT % self._client_id
+        self.subscribe([(event_topic, 2), (receive_topic, 2), (connected_topic, 2)])
         self.message_callback_add(event_topic, self._handle_event_message)
         self.message_callback_add(receive_topic, self._handle_receive_message)
-        self.send_ping()
+        self.message_callback_add(connected_topic, self._handle_connect_message)
 
     def on_message(self, client, userdata, msg):
         """Run message callback when a message is received and no other handlers are registered."""
@@ -63,16 +64,18 @@ class McpMqtt(mqtt.Client, QObject):
         self.connect_async(self._mqtt_ip, self._mqtt_port)
         self.loop_start()
 
-    def send_ping(self):
-        """Send a ping to the MCP client."""
-        ping_topic = _PING_TOPIC_FMT % self._client_id
-        self.publish(ping_topic, '')
-
     def send_sms(self, number, message):
         """Send a command to MCP to send an SMS."""
         msg = {'number': number, 'message': message}
         send_topic = _SEND_TOPIC_FMT % self._client_id
         self.publish(send_topic, json.dumps(msg))
+
+    def _handle_connect_message(self, client, userdata, msg):
+        """Run message callback when a connection message is received."""
+        del client, userdata
+        logging.info('Connect message: %s', msg.payload)
+        connected = (msg.payload == b'true')
+        self.connect_message.emit(connected)
 
     def _handle_event_message(self, client, userdata, msg):
         """Run message callback when an event message is received."""
@@ -80,9 +83,7 @@ class McpMqtt(mqtt.Client, QObject):
         try:
             msg_json = json.loads(msg.payload)
             date = datetime.datetime.fromtimestamp(int(msg_json['date']))
-            if msg_json['type'] == 'ping':
-                self.ping_message.emit(date)
-            elif msg_json['type'] == 'sms_sent':
+            if msg_json['type'] == 'sms_sent':
                 sms_sent_msg = 'Sent SMS to %s: %s' % (msg_json['number'], msg_json['message'])
                 self.log_message.emit(date, sms_sent_msg)
             else:
