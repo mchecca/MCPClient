@@ -33,6 +33,7 @@ class MCP(QMainWindow):
         QWidget.__init__(self, None)
         self._mcp_mqtt = None
         self._notification = None
+        self._muted = False
         self._green_icon = QIcon(resources.GREEN_ICON)
         self._red_icon = QIcon(resources.RED_ICON)
         self.ui = ui_mcp_main_window.Ui_McpMainWindow()
@@ -44,7 +45,9 @@ class MCP(QMainWindow):
         self.ui.statusBar.showMessage("Disconnected")
         # Tray Icon
         menu = QMenu()
+        mute_button = menu.addAction('Mute', self.mute)
         menu.addAction('Exit', self.quit)
+        mute_button.setCheckable(True)
         self._tray = QSystemTrayIcon(self._green_icon)
         self._tray.setContextMenu(menu)
         self._tray.show()
@@ -53,6 +56,10 @@ class MCP(QMainWindow):
         self._tray.messageClicked.connect(self._clear_current_notification)
         self.ui.connectButton.clicked.connect(self._handle_connect_clicked)
         self.ui.sendMessageButton.clicked.connect(self._handle_send_message_clicked)
+
+    def mute(self):
+        """Mute pop-up notifications."""
+        self._muted = self.sender().isChecked()
 
     def quit(self):
         """Close the MCP UI."""
@@ -64,7 +71,7 @@ class MCP(QMainWindow):
         if reason != QSystemTrayIcon.Trigger:
             return
         if self._notification:
-            self._show_message(self._notification)
+            self._show_message(self._notification, force=True)
         else:
             self.setVisible(not self.isVisible())
 
@@ -72,10 +79,11 @@ class MCP(QMainWindow):
         self._notification = None
         self._tray.setIcon(self._green_icon)
 
-    def _show_message(self, message):
-        self._tray.showMessage('MCP', message, QSystemTrayIcon.Information)
+    def _show_message(self, message, force=False):
         self._notification = message
         self._tray.setIcon(self._red_icon)
+        if not self._muted or force:
+            self._tray.showMessage('MCP', message, QSystemTrayIcon.Information)
 
     def _handle_connect_clicked(self):
         mqtt_host = self.ui.mqttServerEdit.text().strip()
