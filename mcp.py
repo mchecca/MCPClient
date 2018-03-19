@@ -119,13 +119,13 @@ class MCP(QMainWindow):
         self.ui.statusBar.showMessage('%s: %s' % (status, date_str))
 
     def _handle_log_message(self, date, message):
-        self._show_message(message)
         log_message = '%s: %s\n' % (date, message)
         self.ui.logMessagesEdit.moveCursor(QTextCursor.End)
         self.ui.logMessagesEdit.insertPlainText(log_message)
         self.ui.logMessagesEdit.moveCursor(QTextCursor.End)
 
     def _handle_new_sms_message(self, date, number, message):
+        self._show_message(message)
         self._handle_log_message(date, 'New SMS from %s: %s' % (number, message))
 
 
