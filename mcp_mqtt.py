@@ -23,13 +23,15 @@ class McpMqtt(mqtt.Client, QObject):
     _mqtt_port = None
     _client_id = None
 
-    def __init__(self, mqtt_ip, mqtt_port, client_id):
+    def __init__(self, mqtt_ip, mqtt_port, client_id, username, password):
         """Initialize the MQTT handler."""
         super(McpMqtt, self).__init__(transport="tcp")
         QObject.__init__(self)
         self._mqtt_ip = mqtt_ip
         self._mqtt_port = mqtt_port
         self._client_id = client_id
+        self._username = username
+        self._password = password
 
     def on_connect(self, client, userdata, flags, rc):
         """Handle MQTT connection established."""
@@ -61,6 +63,8 @@ class McpMqtt(mqtt.Client, QObject):
 
     def run(self):
         """Run the McpMqtt client."""
+        if self._username and self._password:
+            self.username_pw_set(self._username, self._password)
         self.connect_async(self._mqtt_ip, self._mqtt_port)
         self.loop_start()
 

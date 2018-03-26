@@ -105,3 +105,4 @@ venv.bak/
 
 forms/ui_*.py
 logs.txt
+settings.json

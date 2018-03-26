@@ -23,29 +23,33 @@
      </widget>
     </item>
     <item row="0" column="1">
-     <widget class="QLineEdit" name="mqttServerEdit"/>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="clientIdLabel">
-      <property name="text">
-       <string>Client ID</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLineEdit" name="clientIdEdit"/>
-    </item>
-    <item row="2" column="0">
-     <widget class="QPushButton" name="connectButton">
-      <property name="text">
-       <string>Connect</string>
-      </property>
-      <property name="autoDefault">
+     <widget class="QLineEdit" name="mqttServerEdit">
+      <property name="readOnly">
        <bool>true</bool>
       </property>
      </widget>
     </item>
-    <item row="3" column="0" colspan="2">
+    <item row="5" column="0" colspan="2">
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>525</width>
+        <height>0</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="0" column="2">
+     <widget class="QPushButton" name="editServerButton">
+      <property name="text">
+       <string>Edit</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0" colspan="3">
      <widget class="QGroupBox" name="sendMessageGroup">
       <property name="title">
        <string>Send Message</string>
@@ -74,30 +78,30 @@
       </layout>
      </widget>
     </item>
-    <item row="5" column="0" colspan="2">
+    <item row="3" column="0" colspan="3">
+     <widget class="QPushButton" name="sendMessageButton">
+      <property name="text">
+       <string>Send Message</string>
+      </property>
+      <property name="autoDefault">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0" colspan="3">
      <widget class="QPlainTextEdit" name="logMessagesEdit">
       <property name="readOnly">
        <bool>true</bool>
       </property>
      </widget>
     </item>
-    <item row="6" column="0" colspan="2">
-     <spacer name="verticalSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
+    <item row="1" column="0" colspan="3">
+     <widget class="QPushButton" name="connectButton">
+      <property name="enabled">
+       <bool>false</bool>
       </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>525</width>
-        <height>0</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item row="4" column="0" colspan="2">
-     <widget class="QPushButton" name="sendMessageButton">
       <property name="text">
-       <string>Send Message</string>
+       <string>Connect</string>
       </property>
       <property name="autoDefault">
        <bool>true</bool>

@@ -2,6 +2,7 @@
 """Main module for the MCP app."""
 
 import datetime
+import json
 import logging
 import os
 import sys
@@ -12,6 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QMainWindow, QMenu, Q
 
 from forms import ui_mcp_main_window
 from mcp_mqtt import McpMqtt
+from mqtt_settings_dialog import MqttSettingsDialog
 import resources
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
@@ -28,12 +30,15 @@ logging.root.addHandler(fh)
 class MCP(QMainWindow):
     """Main window for the MCP app."""
 
+    _SETTINGS_FILE = 'settings.json'
+
     def __init__(self, server=None):
         """Create a new MCP window."""
         QWidget.__init__(self, None)
         self._mcp_mqtt = None
         self._notification = None
         self._muted = False
+        self._settings = {}
         self._green_icon = QIcon(resources.GREEN_ICON)
         self._red_icon = QIcon(resources.RED_ICON)
         self.ui = ui_mcp_main_window.Ui_McpMainWindow()
@@ -56,6 +61,10 @@ class MCP(QMainWindow):
         self._tray.messageClicked.connect(self._clear_current_notification)
         self.ui.connectButton.clicked.connect(self._handle_connect_clicked)
         self.ui.sendMessageButton.clicked.connect(self._handle_send_message_clicked)
+        self.ui.editServerButton.clicked.connect(self._handle_edit_server_clicked)
+        self.ui.mqttServerEdit.textChanged.connect(self._handle_server_text_changed)
+        # Other Initialization
+        self._load_settings()
 
     def mute(self):
         """Mute pop-up notifications."""
@@ -66,6 +75,28 @@ class MCP(QMainWindow):
         if self._mcp_mqtt:
             self._mcp_mqtt.disconnect()
         QApplication.quit()
+
+    def _save_settings(self):
+        with open(MCP._SETTINGS_FILE, 'w') as f:
+            json.dump(self._settings, f, indent=4)
+
+    def _load_settings(self):
+        try:
+            with open(MCP._SETTINGS_FILE, 'r') as f:
+                self._settings = json.load(f)
+                self.ui.mqttServerEdit.setText(self._settings.get('mqtt_server', ''))
+        except (OSError, json.decoder.JSONDecodeError, TypeError):
+            pass
+
+    def _handle_edit_server_clicked(self):
+        settings = MqttSettingsDialog(self._settings).edit_settings()
+        if settings:
+            self._settings = settings
+            self._save_settings()
+            self.ui.mqttServerEdit.setText(self._settings.get('mqtt_server', ''))
+
+    def _handle_server_text_changed(self, text):
+        self.ui.connectButton.setEnabled(len(text) > 0)
 
     def _handle_tray_clicked(self, reason):
         if reason != QSystemTrayIcon.Trigger:
@@ -86,10 +117,10 @@ class MCP(QMainWindow):
             self._tray.showMessage('MCP', message, QSystemTrayIcon.Information)
 
     def _handle_connect_clicked(self):
-        mqtt_host = self.ui.mqttServerEdit.text().strip()
+        mqtt_host = self._settings.get('mqtt_server', '').strip()
         mqtt_ip, mqtt_port = (mqtt_host + ':1883').split(':')[0:2]
         mqtt_port = int(mqtt_port)
-        client_id = self.ui.clientIdEdit.text().strip()
+        client_id = self._settings.get('client_id', '').strip()
         error_msg = None
         if not mqtt_host:
             error_msg = 'MQTT Host is empty!'
@@ -100,7 +131,11 @@ class MCP(QMainWindow):
         if error_msg:
             QMessageBox.critical(self, self.windowTitle(), error_msg)
             return
-        self._mcp_mqtt = McpMqtt(mqtt_ip, mqtt_port, client_id)
+        auth_settings = self._settings.get('authentication', {})
+        use_username = auth_settings.get('use_username')
+        username = auth_settings.get('username') if use_username else None
+        password = auth_settings.get('password') if use_username else None
+        self._mcp_mqtt = McpMqtt(mqtt_ip, mqtt_port, client_id, username, password)
         self._mcp_mqtt.connect_message.connect(self._handle_connect_message)
         self._mcp_mqtt.log_message.connect(self._handle_log_message)
         self._mcp_mqtt.new_sms_message.connect(self._handle_new_sms_message)
