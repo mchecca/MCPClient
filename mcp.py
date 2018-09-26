@@ -53,6 +53,7 @@ class MCP(QMainWindow):
         mute_button = menu.addAction('Mute', self.mute)
         menu.addAction('Exit', self.quit)
         mute_button.setCheckable(True)
+        self._mute_button = mute_button
         self._tray = QSystemTrayIcon(self._green_icon)
         self._tray.setContextMenu(menu)
         self._tray.show()
@@ -66,6 +67,10 @@ class MCP(QMainWindow):
         # Other Initialization
         self._load_settings()
 
+    def closeEvent(self, event):
+        self._save_settings()
+        event.accept()
+
     def mute(self):
         """Mute pop-up notifications."""
         self._muted = self.sender().isChecked()
@@ -77,6 +82,10 @@ class MCP(QMainWindow):
         QApplication.quit()
 
     def _save_settings(self):
+        self._settings['ui'] = {
+            'muted': self._muted,
+            'recepient': self.ui.recepientEdit.text().strip(),
+        }
         with open(MCP._SETTINGS_FILE, 'w') as f:
             json.dump(self._settings, f, indent=4)
 
@@ -85,6 +94,12 @@ class MCP(QMainWindow):
             with open(MCP._SETTINGS_FILE, 'r') as f:
                 self._settings = json.load(f)
                 self.ui.mqttServerEdit.setText(self._settings.get('mqtt_server', ''))
+                ui_settings = self._settings.get('ui')
+                muted = ui_settings.get('muted', False)
+                recepient = ui_settings.get('recepient', '')
+                self._mute_button.setChecked(muted)
+                self._muted = muted
+                self.ui.recepientEdit.setText(recepient)
         except (OSError, json.decoder.JSONDecodeError, TypeError):
             pass
 
