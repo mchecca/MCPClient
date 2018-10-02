@@ -5,12 +5,15 @@ import json
 import logging
 
 from PyQt5.QtCore import QObject, pyqtSignal
+import dateutil.parser
 import paho.mqtt.client as mqtt
 
 _SEND_TOPIC_FMT = "%s/sms/send"
 _RECEIVE_TOPIC_FMT = '%s/sms/receive'
 _EVENT_TOPIC_FMT = "%s/sms/event"
 _CONNECTED_TOPIC_FMT = "%s/connected"
+_RPC_REQUEST_TOPIC_FMT = "%s/rpc/request"
+_RPC_RESPONSE_TOPIC_FMT = "%s/rpc/reply"
 
 
 class McpMqtt(mqtt.Client, QObject):
@@ -39,10 +42,12 @@ class McpMqtt(mqtt.Client, QObject):
         event_topic = _EVENT_TOPIC_FMT % self._client_id
         receive_topic = _RECEIVE_TOPIC_FMT % self._client_id
         connected_topic = _CONNECTED_TOPIC_FMT % self._client_id
-        self.subscribe([(event_topic, 2), (receive_topic, 2), (connected_topic, 2)])
+        rpc_response_topic = _RPC_RESPONSE_TOPIC_FMT % self._client_id
+        self.subscribe([(event_topic, 2), (receive_topic, 2), (connected_topic, 2), (rpc_response_topic, 2)])
         self.message_callback_add(event_topic, self._handle_event_message)
         self.message_callback_add(receive_topic, self._handle_receive_message)
         self.message_callback_add(connected_topic, self._handle_connect_message)
+        self.message_callback_add(rpc_response_topic, self._handle_rpc_response_message)
 
     def on_message(self, client, userdata, msg):
         """Run message callback when a message is received and no other handlers are registered."""
@@ -74,6 +79,12 @@ class McpMqtt(mqtt.Client, QObject):
         send_topic = _SEND_TOPIC_FMT % self._client_id
         self.publish(send_topic, json.dumps(msg))
 
+    def list_sms(self):
+        """Send a RPC request to get the list of SMS messages."""
+        msg = {'id': 'list_sms', 'command': 'list sms'}
+        rpc_topic = _RPC_REQUEST_TOPIC_FMT % self._client_id
+        self.publish(rpc_topic, json.dumps(msg))
+
     def _handle_connect_message(self, client, userdata, msg):
         """Run message callback when a connection message is received."""
         del client, userdata
@@ -102,5 +113,23 @@ class McpMqtt(mqtt.Client, QObject):
             msg_json = json.loads(msg.payload)
             date = datetime.datetime.fromtimestamp(int(msg_json['date']))
             self.new_sms_message.emit(date, msg_json['number'], msg_json['message'])
+        except Exception:
+            logging.exception('Unable to parse JSON message')
+
+    def _handle_rpc_response_message(self, client, userdata, msg):
+        """Run message callback when an RPC response message is received."""
+        del client, userdata
+        try:
+            msg_json = json.loads(msg.payload)
+            if msg_json.get('id', '') == 'list_sms':
+                messages = msg_json.get('sms', [])
+                for m in reversed(messages):
+                    mdate = dateutil.parser.parse(m['date'])
+                    msgstr = '{0} {1}: {2}'.format(
+                        'From' if m['type'] == 'INBOX' else 'To',
+                        m['number'], m['message']
+                    )
+                    self.log_message.emit(mdate, msgstr)
+
         except Exception:
             logging.exception('Unable to parse JSON message')

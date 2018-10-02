@@ -62,6 +62,7 @@ class MCP(QMainWindow):
         self._tray.messageClicked.connect(self._clear_current_notification)
         self.ui.connectButton.clicked.connect(self._handle_connect_clicked)
         self.ui.sendMessageButton.clicked.connect(self._handle_send_message_clicked)
+        self.ui.listSmsButton.clicked.connect(self._handle_list_sms_clicked)
         self.ui.editServerButton.clicked.connect(self._handle_edit_server_clicked)
         self.ui.mqttServerEdit.textChanged.connect(self._handle_server_text_changed)
         # Other Initialization
@@ -162,6 +163,10 @@ class MCP(QMainWindow):
             message = self.ui.messageEdit.toPlainText().strip()
             self._mcp_mqtt.send_sms(number, message)
             self.ui.messageEdit.clear()
+
+    def _handle_list_sms_clicked(self):
+        if self._mcp_mqtt:
+            self._mcp_mqtt.list_sms()
 
     def _handle_connect_message(self, connected):
         status = 'Connected' if connected else 'Disconnected'
