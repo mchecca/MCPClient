@@ -171,7 +171,9 @@ class MCP(QMainWindow):
     def _handle_connect_message(self, connected):
         status = 'Connected' if connected else 'Disconnected'
         date_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.ui.statusBar.showMessage('%s: %s' % (status, date_str))
+        message = '{0}: {1}'.format(status, date_str)
+        self._show_message(message)
+        self.ui.statusBar.showMessage(message)
         self.ui.listSmsButton.setEnabled(connected)
         self.ui.sendMessageButton.setEnabled(connected)
 
